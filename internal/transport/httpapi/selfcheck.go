@@ -27,20 +27,36 @@ type mutationResult struct {
 }
 
 func RunSelfcheck(ctx context.Context, listener net.Listener, server *http.Server) error {
-	errCh := make(chan error, 1)
-	go func() { errCh <- server.Serve(listener) }()
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- server.Serve(listener) }()
+	shutdown := func() {
+		_ = Shutdown(server)
+		select {
+		case err := <-serveErr:
+			if err != nil && err != http.ErrServerClosed {
+				return
+			}
+		case <-ctx.Done():
+		}
+	}
 	c := &selfcheckClient{base: "http://" + listener.Addr().String(), client: &http.Client{Timeout: 3 * time.Second}}
 	if err := c.waitHealthy(ctx); err != nil {
+		shutdown()
 		return err
 	}
 	if err := c.run(ctx); err != nil {
+		shutdown()
 		return err
 	}
 	if err := Shutdown(server); err != nil {
+		select {
+		case <-serveErr:
+		case <-ctx.Done():
+		}
 		return err
 	}
 	select {
-	case err := <-errCh:
+	case err := <-serveErr:
 		if err != nil && err != http.ErrServerClosed {
 			return err
 		}
