@@ -9,7 +9,7 @@ import (
 func (a *API) Health(w http.ResponseWriter, _ *http.Request) {
 	report, err := a.service.Store().Verify()
 	if err != nil {
-		writeError(w, err)
+		writeJSON(w, http.StatusServiceUnavailable, map[string]any{"status": "degraded", "storage": report, "error": err.Error()})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "storage": report})
