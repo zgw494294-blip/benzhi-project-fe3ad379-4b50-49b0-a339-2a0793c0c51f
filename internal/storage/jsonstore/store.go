@@ -21,7 +21,6 @@ type Store struct {
 	mu           sync.RWMutex
 	dir          string
 	ledgerPath   string
-	ledgerFile   *os.File
 	snapshotPath string
 	projection   *calibration.Snapshot
 	events       []ledger.Event
@@ -187,18 +186,23 @@ func cloneSnapshot(in *calibration.Snapshot) (*calibration.Snapshot, error) {
 }
 
 func (s *Store) appendEvent(event ledger.Event) error {
-	if s.ledgerFile == nil {
-		f, err := os.OpenFile(s.ledgerPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
-		if err != nil {
-			return fmt.Errorf("打开事件账本: %w", err)
-		}
-		s.ledgerFile = f
+	// Open the ledger on every append rather than caching the file descriptor.
+	// External automation may atomically rotate events.jsonl (archiving the
+	// current inode and recreating a ledger with the prior events at the same
+	// path); a cached descriptor would keep writing to the archived inode, so
+	// successful commits would survive in memory but vanish after reopening the
+	// store. Opening here ensures appends always target the current ledger
+	// inode, and the O_APPEND flag keeps concurrent-style writes sequential.
+	f, err := os.OpenFile(s.ledgerPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
+	if err != nil {
+		return fmt.Errorf("打开事件账本: %w", err)
 	}
-	encoder := json.NewEncoder(s.ledgerFile)
+	defer f.Close()
+	encoder := json.NewEncoder(f)
 	if err := encoder.Encode(event); err != nil {
 		return fmt.Errorf("追加事件: %w", err)
 	}
-	if err := s.ledgerFile.Sync(); err != nil {
+	if err := f.Sync(); err != nil {
 		return fmt.Errorf("同步事件账本: %w", err)
 	}
 	return nil
