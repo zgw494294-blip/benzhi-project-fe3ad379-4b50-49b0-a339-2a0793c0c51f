@@ -59,6 +59,8 @@ type SensorRevision struct {
 	CreatedAt         time.Time `json:"createdAt"`
 }
 
+func (s SensorRevision) OwnerBatchID() string { return s.BatchID }
+
 type CalibrationProfile struct {
 	ID                  string     `json:"id"`
 	BatchID             string     `json:"batchID"`
@@ -69,6 +71,8 @@ type CalibrationProfile struct {
 	RepeatabilityLimit  float64    `json:"repeatabilityLimit"`
 	LockedAt            *time.Time `json:"lockedAt,omitempty"`
 }
+
+func (p CalibrationProfile) OwnerBatchID() string { return p.BatchID }
 
 type MeasurementSet struct {
 	ID               string    `json:"id"`
@@ -83,6 +87,8 @@ type MeasurementSet struct {
 	CapturedBy       string    `json:"capturedBy"`
 	CapturedAt       time.Time `json:"capturedAt"`
 }
+
+func (m MeasurementSet) OwnerBatchID() string { return m.BatchID }
 
 type ReviewFinding struct {
 	ID                 string        `json:"id"`
@@ -99,6 +105,8 @@ type ReviewFinding struct {
 	ReviewedAt         *time.Time    `json:"reviewedAt,omitempty"`
 }
 
+func (f ReviewFinding) OwnerBatchID() string { return f.BatchID }
+
 type RecalibrationTask struct {
 	ID                    string                  `json:"id"`
 	BatchID               string                  `json:"batchID"`
@@ -113,6 +121,8 @@ type RecalibrationTask struct {
 	UpdatedAt             time.Time               `json:"updatedAt"`
 }
 
+func (t RecalibrationTask) OwnerBatchID() string { return t.BatchID }
+
 type ReleaseCredential struct {
 	ID                string    `json:"id"`
 	BatchID           string    `json:"batchID"`
@@ -123,6 +133,8 @@ type ReleaseCredential struct {
 	IssuedBy          string    `json:"issuedBy"`
 	IssuedAt          time.Time `json:"issuedAt"`
 }
+
+func (c ReleaseCredential) OwnerBatchID() string { return c.BatchID }
 
 type ReviewRecord struct {
 	BatchID    string    `json:"batchID"`
