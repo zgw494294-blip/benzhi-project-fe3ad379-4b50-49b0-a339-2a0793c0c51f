@@ -150,6 +150,12 @@ func (s *Store) Commit(req CommitRequest) (CommitResult, error) {
 	}
 	s.projection = next
 	s.events = append(s.events, event)
+	if cached, ok := s.eventCache[req.AggregateID]; ok {
+		s.eventCache[req.AggregateID] = append(cached, event)
+	}
+	if cached, ok := s.eventCache[""]; ok {
+		s.eventCache[""] = append(cached, event)
+	}
 	s.idempotency[key] = IdempotentResult{AggregateID: req.AggregateID, Command: req.Command, RequestDigest: req.RequestDigest, Response: response}
 	if err := s.writeSnapshot(next, event.Sequence, event.Digest); err != nil {
 		return CommitResult{}, err
