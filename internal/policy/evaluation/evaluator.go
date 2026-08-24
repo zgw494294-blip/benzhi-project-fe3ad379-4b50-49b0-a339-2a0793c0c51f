@@ -2,6 +2,7 @@ package evaluation
 
 import (
 	"sort"
+	"sync"
 
 	"sensor-calibration-release/internal/domain/calibration"
 )
@@ -17,12 +18,34 @@ type BatchResult struct {
 	Sensors  []SensorResult
 }
 
-type Evaluator struct{}
+type statisticsCacheKey struct {
+	SensorRevisionID string
+	ReferencePoint   float64
+	ReadingTotal     float64
+}
 
-func New() *Evaluator { return &Evaluator{} }
+type Evaluator struct {
+	mu              sync.Mutex
+	statisticsCache map[statisticsCacheKey]Statistics
+}
+
+func New() *Evaluator {
+	return &Evaluator{statisticsCache: make(map[statisticsCacheKey]Statistics)}
+}
 
 func (e *Evaluator) ApplyStatistics(set *calibration.MeasurementSet) {
-	stats := Calculate(set.ReferencePoint, set.Readings)
+	total := 0.0
+	for _, reading := range set.Readings {
+		total += reading
+	}
+	key := statisticsCacheKey{SensorRevisionID: set.SensorRevisionID, ReferencePoint: set.ReferencePoint, ReadingTotal: total}
+	e.mu.Lock()
+	stats, ok := e.statisticsCache[key]
+	if !ok {
+		stats = Calculate(set.ReferencePoint, set.Readings)
+		e.statisticsCache[key] = stats
+	}
+	e.mu.Unlock()
 	set.Mean, set.AbsoluteError, set.RelativeError, set.Spread = stats.Mean, stats.AbsoluteError, stats.RelativeError, stats.Spread
 }
 
