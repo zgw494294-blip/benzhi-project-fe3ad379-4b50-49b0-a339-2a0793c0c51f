@@ -13,14 +13,21 @@ import (
 )
 
 type Service struct {
-	store     *jsonstore.Store
-	evaluator *evaluation.Evaluator
-	now       func() time.Time
-	newID     func(string) string
+	store                       *jsonstore.Store
+	evaluator                   *evaluation.Evaluator
+	credentialVerificationCache map[string]CredentialVerification
+	now                         func() time.Time
+	newID                       func(string) string
 }
 
 func New(store *jsonstore.Store) *Service {
-	return &Service{store: store, evaluator: evaluation.New(), now: time.Now, newID: randomID}
+	return &Service{
+		store:                       store,
+		evaluator:                   evaluation.New(),
+		credentialVerificationCache: make(map[string]CredentialVerification),
+		now:                         time.Now,
+		newID:                       randomID,
+	}
 }
 
 func randomID(prefix string) string {

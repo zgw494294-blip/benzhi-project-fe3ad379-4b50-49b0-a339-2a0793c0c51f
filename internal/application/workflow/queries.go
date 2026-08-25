@@ -205,6 +205,11 @@ func (s *Service) VerifyCredential(batchID, credentialID, providedDigest string)
 		result.Failures = append(result.Failures, CredentialVerificationFailure{Code: "content_digest_mismatch", Message: "调用方提供的 contentDigest 与凭据不匹配"})
 		return result, nil
 	}
+	cacheKey := batchID + "\x00" + credentialID + "\x00" + providedDigest
+	if cached, ok := s.credentialVerificationCache[cacheKey]; ok {
+		cached.VerifiedAt = result.VerifiedAt
+		return cloneCredentialVerification(cached), nil
+	}
 	for _, revisionID := range credential.SensorRevisionIDs {
 		sensor := snapshot.Sensors[revisionID]
 		if sensor == nil {
@@ -214,7 +219,19 @@ func (s *Service) VerifyCredential(batchID, credentialID, providedDigest string)
 	}
 	sort.Slice(result.Devices, func(i, j int) bool { return result.Devices[i].SensorCode < result.Devices[j].SensorCode })
 	result.Valid = true
+	s.credentialVerificationCache[cacheKey] = cloneCredentialVerification(result)
 	return result, nil
+}
+
+func cloneCredentialVerification(in CredentialVerification) CredentialVerification {
+	out := in
+	out.Failures = append([]CredentialVerificationFailure(nil), in.Failures...)
+	out.Devices = append([]CredentialDevice(nil), in.Devices...)
+	if in.Credential != nil {
+		credential := *in.Credential
+		out.Credential = &credential
+	}
+	return out
 }
 
 func (s *Service) AuditTrail(batchID string) ([]ledger.Event, error) {
