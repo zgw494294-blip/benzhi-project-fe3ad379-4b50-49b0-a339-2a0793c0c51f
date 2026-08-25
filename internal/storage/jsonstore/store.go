@@ -21,6 +21,7 @@ type Store struct {
 	mu           sync.RWMutex
 	dir          string
 	ledgerPath   string
+	ledgerFile   *os.File
 	snapshotPath string
 	projection   *calibration.Snapshot
 	events       []ledger.Event
@@ -186,20 +187,21 @@ func cloneSnapshot(in *calibration.Snapshot) (*calibration.Snapshot, error) {
 }
 
 func (s *Store) appendEvent(event ledger.Event) error {
-	f, err := os.OpenFile(s.ledgerPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
-	if err != nil {
-		return fmt.Errorf("打开事件账本: %w", err)
+	if s.ledgerFile == nil {
+		f, err := os.OpenFile(s.ledgerPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0640)
+		if err != nil {
+			return fmt.Errorf("打开事件账本: %w", err)
+		}
+		s.ledgerFile = f
 	}
-	encoder := json.NewEncoder(f)
+	encoder := json.NewEncoder(s.ledgerFile)
 	if err := encoder.Encode(event); err != nil {
-		f.Close()
 		return fmt.Errorf("追加事件: %w", err)
 	}
-	if err := f.Sync(); err != nil {
-		f.Close()
+	if err := s.ledgerFile.Sync(); err != nil {
 		return fmt.Errorf("同步事件账本: %w", err)
 	}
-	return f.Close()
+	return nil
 }
 
 func (s *Store) writeSnapshot(projection *calibration.Snapshot, sequence int64, digest string) error {
