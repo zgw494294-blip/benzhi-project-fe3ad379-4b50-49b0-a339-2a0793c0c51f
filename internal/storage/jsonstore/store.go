@@ -24,6 +24,7 @@ type Store struct {
 	snapshotPath string
 	projection   *calibration.Snapshot
 	events       []ledger.Event
+	eventCache   map[string][]ledger.Event
 	idempotency  map[string]IdempotentResult
 	now          func() time.Time
 }
@@ -35,7 +36,7 @@ func Open(dir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0750); err != nil {
 		return nil, fmt.Errorf("创建存储目录: %w", err)
 	}
-	s := &Store{dir: dir, ledgerPath: filepath.Join(dir, "events.jsonl"), snapshotPath: filepath.Join(dir, "snapshot.json"), projection: calibration.NewSnapshot(), idempotency: make(map[string]IdempotentResult), now: time.Now}
+	s := &Store{dir: dir, ledgerPath: filepath.Join(dir, "events.jsonl"), snapshotPath: filepath.Join(dir, "snapshot.json"), projection: calibration.NewSnapshot(), eventCache: make(map[string][]ledger.Event), idempotency: make(map[string]IdempotentResult), now: time.Now}
 	if err := s.recover(); err != nil {
 		return nil, err
 	}
@@ -69,15 +70,19 @@ func (s *Store) BatchReadSnapshot() (*calibration.Snapshot, []*calibration.Calib
 }
 
 func (s *Store) Events(aggregateID string) []ledger.Event {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if cached, ok := s.eventCache[aggregateID]; ok {
+		return append([]ledger.Event(nil), cached...)
+	}
 	out := make([]ledger.Event, 0)
 	for _, event := range s.events {
 		if aggregateID == "" || event.AggregateID == aggregateID {
 			out = append(out, event)
 		}
 	}
-	return out
+	s.eventCache[aggregateID] = out
+	return append([]ledger.Event(nil), out...)
 }
 
 func (s *Store) Commit(req CommitRequest) (CommitResult, error) {
