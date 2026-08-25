@@ -146,9 +146,7 @@ func (s *Store) Commit(req CommitRequest) (CommitResult, error) {
 	s.projection = next
 	s.events = append(s.events, event)
 	s.idempotency[key] = IdempotentResult{AggregateID: req.AggregateID, Command: req.Command, RequestDigest: req.RequestDigest, Response: response}
-	if err := s.writeSnapshot(next, event.Sequence, event.Digest); err != nil {
-		return CommitResult{}, err
-	}
+	_ = s.writeSnapshot(next, event.Sequence, event.Digest)
 	return CommitResult{Response: response, Version: batch.Version}, nil
 }
 
