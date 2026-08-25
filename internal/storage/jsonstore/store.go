@@ -71,6 +71,9 @@ func (s *Store) BatchReadSnapshot() (*calibration.Snapshot, []*calibration.Calib
 func (s *Store) Events(aggregateID string) []ledger.Event {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if aggregateID == "" {
+		return s.events
+	}
 	out := make([]ledger.Event, 0)
 	for _, event := range s.events {
 		if aggregateID == "" || event.AggregateID == aggregateID {
