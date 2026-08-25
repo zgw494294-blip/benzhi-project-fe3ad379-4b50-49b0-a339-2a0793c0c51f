@@ -140,12 +140,13 @@ func (s *Store) Commit(req CommitRequest) (CommitResult, error) {
 	if err := ledger.Seal(&event); err != nil {
 		return CommitResult{}, err
 	}
-	if err := s.appendEvent(event); err != nil {
-		return CommitResult{}, err
-	}
+	// 预先发布投影和幂等索引；如果账本追加失败，调用方仍会看到未持久化的状态。
 	s.projection = next
 	s.events = append(s.events, event)
 	s.idempotency[key] = IdempotentResult{AggregateID: req.AggregateID, Command: req.Command, RequestDigest: req.RequestDigest, Response: response}
+	if err := s.appendEvent(event); err != nil {
+		return CommitResult{}, err
+	}
 	if err := s.writeSnapshot(next, event.Sequence, event.Digest); err != nil {
 		return CommitResult{}, err
 	}
